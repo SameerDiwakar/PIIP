@@ -5,7 +5,7 @@ const getClient = () => {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 };
 
-const buildSystemPrompt = (user, profile) => {
+const buildSystemPrompt = (user, profile, memories) => {
   let prompt = `You are PIIP AI, a personal investment intelligence assistant. You help users understand their investing behavior and make better decisions. Be concise, insightful, and data-driven. Never give licensed financial advice - always include a disclaimer when discussing specific buy/sell recommendations.
 
 User Profile:
@@ -34,10 +34,17 @@ Behavioral Analysis:
   - Consistency: ${profile.behavioralScores?.consistency || 0}/100`;
   }
 
+  if (memories && memories.length > 0) {
+    prompt += `
+
+Long-term Memory (learned from past behavior):
+${memories.map((m) => `- [${m.category}] ${m.content}`).join('\n')}`;
+  }
+
   return prompt;
 };
 
-const generateAIResponse = async ({ message, user, profile, recentHistory, ticker, topic }) => {
+const generateAIResponse = async ({ message, user, profile, recentHistory, ticker, topic, memories }) => {
   const client = getClient();
   if (!client) {
     return {
@@ -47,7 +54,7 @@ const generateAIResponse = async ({ message, user, profile, recentHistory, ticke
     };
   }
 
-  const systemPrompt = buildSystemPrompt(user, profile);
+  const systemPrompt = buildSystemPrompt(user, profile, memories);
   const messages = [{ role: 'system', content: systemPrompt }];
 
   if (recentHistory && recentHistory.length > 0) {

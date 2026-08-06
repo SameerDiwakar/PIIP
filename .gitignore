@@ -1,3 +1,6 @@
 node_modules
 .env
-.env.example
+server/.env
+client/.env
+dist
+build

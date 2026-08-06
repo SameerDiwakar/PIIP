@@ -10,6 +10,7 @@ import Watchlist from './pages/Watchlist';
 import Behavior from './pages/Behavior';
 import AIChat from './pages/AIChat';
 import Analytics from './pages/Analytics';
+import Recommendations from './pages/Recommendations';
 import Onboarding from './pages/Onboarding';
 
 const ProtectedRoute = ({ children }) => {
@@ -31,6 +32,7 @@ const App = () => (
       <Route path="/watchlist" element={<Watchlist />} />
       <Route path="/behavior" element={<Behavior />} />
       <Route path="/ai-chat" element={<AIChat />} />
+      <Route path="/recommendations" element={<Recommendations />} />
       <Route path="/analytics" element={<Analytics />} />
     </Route>
     <Route path="*" element={<Navigate to="/" />} />

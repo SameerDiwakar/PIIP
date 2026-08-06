@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ArrowLeftRight, Briefcase, Eye, Brain, MessageSquare,
-  BarChart3, LogOut, Menu, X,
+  BarChart3, LogOut, Menu, X, Sparkles,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/portfolio', label: 'Portfolio', icon: Briefcase },
   { to: '/watchlist', label: 'Watchlist', icon: Eye },
   { to: '/behavior', label: 'Behavior Analysis', icon: Brain },
+  { to: '/recommendations', label: 'Recommendations', icon: Sparkles },
   { to: '/ai-chat', label: 'AI Assistant', icon: MessageSquare },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
 ];

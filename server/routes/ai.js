@@ -2,6 +2,7 @@ const express = require('express');
 const { protect } = require('../middleware/auth');
 const { analyzeBehavior } = require('../services/behaviorAnalyzer');
 const { generateAIResponse, generateInsights } = require('../services/aiService');
+const { getMemories } = require('../services/memoryService');
 const UserBehaviorProfile = require('../models/UserBehaviorProfile');
 const Transaction = require('../models/Transaction');
 const ChatHistory = require('../models/ChatHistory');
@@ -42,10 +43,10 @@ router.post('/chat', async (req, res) => {
     if (!message) return res.status(400).json({ error: 'Message is required' });
 
     let profile = await UserBehaviorProfile.findOne({ user: req.user._id });
-    const recentHistory = await ChatHistory.find({ user: req.user._id })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .select('role content -_id');
+    const [recentHistory, memories] = await Promise.all([
+      ChatHistory.find({ user: req.user._id }).sort({ createdAt: -1 }).limit(10).select('role content -_id'),
+      getMemories(req.user._id, 10),
+    ]);
 
     await ChatHistory.create({ user: req.user._id, role: 'user', content: message, context: { ticker, topic, behaviorProfileId: profile?._id } });
 
@@ -56,6 +57,7 @@ router.post('/chat', async (req, res) => {
       recentHistory,
       ticker,
       topic,
+      memories,
     });
 
     await ChatHistory.create({

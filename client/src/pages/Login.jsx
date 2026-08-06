@@ -63,6 +63,16 @@ const Login = () => {
             Don't have an account?{' '}
             <Link to="/register" className="text-primary-600 font-medium hover:underline">Sign up</Link>
           </p>
+          <div className="mt-4 p-3 rounded-lg bg-primary-50 border border-primary-100 text-sm text-primary-700">
+            <strong>Demo account:</strong> demo@piip.com / demo1234
+            <button
+              type="button"
+              onClick={() => { setEmail('demo@piip.com'); setPassword('demo1234'); }}
+              className="block mt-1 text-primary-600 hover:underline text-xs"
+            >
+              Fill demo credentials
+            </button>
+          </div>
         </div>
       </div>
     </div>

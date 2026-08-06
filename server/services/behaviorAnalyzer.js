@@ -55,7 +55,7 @@ const calculateBehavioralScores = (transactions, analysis) => {
   const sectorCount = analysis.preferredSectors.length;
   scores.consistency = sectorCount > 0 ? Math.max(20, Math.round(100 - sectorCount * 10)) : 0;
 
-  const positionSizes = transactions.map((t) => t.totalValue);
+  const positionSizes = transactions.map((t) => t.totalValue || t.quantity * t.price).filter((v) => v > 0);
   if (positionSizes.length > 1) {
     const avg = positionSizes.reduce((s, v) => s + v, 0) / positionSizes.length;
     const variance = positionSizes.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / positionSizes.length;
@@ -125,7 +125,7 @@ const analyzeBehavior = async (userId) => {
     sentimentBias[t.sentiment || 'neutral'] += 1;
   });
 
-  const positionSizes = transactions.map((t) => t.totalValue);
+  const positionSizes = transactions.map((t) => t.totalValue || t.quantity * t.price).filter((v) => v > 0);
   const averagePositionSize = positionSizes.length > 0
     ? positionSizes.reduce((s, v) => s + v, 0) / positionSizes.length
     : 0;

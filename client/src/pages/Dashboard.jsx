@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import API from '../api';
 import { useAuth } from '../context/AuthContext';
-import { TrendingUp, TrendingDown, DollarSign, Activity, Brain, ArrowRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Activity, Brain, ArrowRight, Database } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -10,24 +10,37 @@ const Dashboard = () => {
   const [portfolio, setPortfolio] = useState(null);
   const [insights, setInsights] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [analyticsRes, portfolioRes, insightsRes] = await Promise.all([
-          API.get('/analytics').catch(() => ({ data: null })),
-          API.get('/portfolio').catch(() => ({ data: null })),
-          API.post('/ai/insights').catch(() => ({ data: { insights: [] } })),
-        ]);
-        setStats(analyticsRes.data);
-        setPortfolio(portfolioRes.data);
-        setInsights(insightsRes.data?.insights || []);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  const fetchData = async () => {
+    try {
+      const [analyticsRes, portfolioRes, insightsRes] = await Promise.all([
+        API.get('/analytics').catch(() => ({ data: null })),
+        API.get('/portfolio').catch(() => ({ data: null })),
+        API.post('/ai/insights').catch(() => ({ data: { insights: [] } })),
+      ]);
+      setStats(analyticsRes.data);
+      setPortfolio(portfolioRes.data);
+      setInsights(insightsRes.data?.insights || []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleLoadSampleData = async () => {
+    if (!confirm('Load sample investment data? This will replace your existing transactions.')) return;
+    setSeeding(true);
+    try {
+      await API.post('/seed/demo');
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to load sample data');
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   if (loading) return <div className="animate-pulse text-slate-400">Loading your dashboard...</div>;
 
@@ -50,6 +63,18 @@ const Dashboard = () => {
         <h1 className="text-2xl font-bold text-slate-900">Welcome back, {user?.name}</h1>
         <p className="text-slate-500 mt-1">Here's your investment overview</p>
       </div>
+
+      {summary.totalTransactions === 0 && (
+        <div className="card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-primary-200 bg-primary-50/50">
+          <div>
+            <h3 className="font-semibold text-slate-900">Get started with sample data</h3>
+            <p className="text-sm text-slate-600 mt-1">Load 27 sample transactions, watchlist items, and behavioral memories to explore all features.</p>
+          </div>
+          <button onClick={handleLoadSampleData} disabled={seeding} className="btn-primary shrink-0">
+            <Database className="w-4 h-4" /> {seeding ? 'Loading...' : 'Load Sample Data'}
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((card) => {

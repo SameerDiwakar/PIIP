@@ -10,6 +10,9 @@ const watchlistRoutes = require('./routes/watchlist');
 const portfolioRoutes = require('./routes/portfolio');
 const aiRoutes = require('./routes/ai');
 const analyticsRoutes = require('./routes/analytics');
+const recommendationsRoutes = require('./routes/recommendations');
+const memoryRoutes = require('./routes/memory');
+const seedRoutes = require('./routes/seed');
 
 const app = express();
 
@@ -39,6 +42,9 @@ app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/ai', aiLimiter, aiRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/recommendations', aiLimiter, recommendationsRoutes);
+app.use('/api/memory', memoryRoutes);
+app.use('/api/seed', seedRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
