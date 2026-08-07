@@ -4,6 +4,13 @@ PIIP (Personal Investment Intelligence Platform) is a full-stack web application
 
 ---
 
+## Live Deployment Links
+
+- **Frontend Application (Vercel):** [https://piip-mgbi-lilac.vercel.app](https://piip-mgbi-lilac.vercel.app)
+- **Backend API Server (Render):** [https://piip-backend.onrender.com](https://piip-backend.onrender.com)
+
+---
+
 ## Features
 
 - **Transaction & Portfolio Management:** Log buy, sell, and hold transactions with cost basis, notes, sentiment, and market context. View portfolio positions, unrealized returns, and asset allocation breakdown.
