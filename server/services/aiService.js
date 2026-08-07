@@ -1,12 +1,62 @@
-const OpenAI = require('openai');
+const callGeminiAPI = async ({ systemInstruction, contents, responseJson = false }) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is missing in server/.env. Please add your GEMINI_API_KEY to server/.env.');
+  }
 
-const getClient = () => {
-  if (!process.env.OPENAI_API_KEY) return null;
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const primaryModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const modelsToTry = Array.from(new Set([primaryModel, 'gemini-1.5-flash', 'gemini-2.0-flash']));
+
+  let lastError = null;
+
+  for (const model of modelsToTry) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const body = {
+      contents,
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 800,
+      },
+    };
+
+    if (systemInstruction) {
+      body.system_instruction = {
+        parts: [{ text: systemInstruction }],
+      };
+    }
+
+    if (responseJson) {
+      body.generationConfig.response_mime_type = 'application/json';
+    }
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return text;
+      } else {
+        const errorBody = await res.text().catch(() => '');
+        lastError = new Error(`Gemini API (${model}) Error (HTTP ${res.status}): ${errorBody || res.statusText}`);
+        console.warn(`[AI Service] Model ${model} returned HTTP ${res.status}. Retrying with fallback model...`);
+      }
+    } catch (err) {
+      lastError = err;
+      console.warn(`[AI Service] Model ${model} fetch failed (${err.message}). Retrying with fallback model...`);
+    }
+  }
+
+  throw lastError || new Error('All Gemini API models failed');
 };
 
 const buildSystemPrompt = (user, profile, memories) => {
-  let prompt = `You are PIIP AI, a personal investment intelligence assistant. You help users understand their investing behavior and make better decisions. Be concise, insightful, and data-driven. Never give licensed financial advice - always include a disclaimer when discussing specific buy/sell recommendations.
+  let prompt = `You are PIIP AI, a personal investment intelligence assistant. You help users understand their investing behavior, trading patterns, and make disciplined financial decisions. Be concise, insightful, and data-driven. Never give licensed financial advice - always include a disclaimer when discussing specific buy/sell recommendations.
 
 User Profile:
 - Name: ${user.name}
@@ -44,50 +94,156 @@ ${memories.map((m) => `- [${m.category}] ${m.content}`).join('\n')}`;
   return prompt;
 };
 
+const generateSmartOfflineResponse = (message, user, profile, ticker, topic) => {
+  const lower = (message || '').toLowerCase().trim();
+  const userName = user?.name ? user.name.split(' ')[0] : 'investor';
+  const risk = profile?.riskProfile || user?.riskTolerance || 'moderate';
+  const behaviorType = profile?.behaviorType || 'balanced';
+
+  // 1. Greetings
+  if (/^(hi|hello|hey|greetings|hola|good morning|good afternoon)\b/i.test(lower)) {
+    return `Hello ${userName}! I'm PIIP AI, your personal investment intelligence assistant.\n\n` +
+      (profile
+        ? `Your current profile is classified as **${behaviorType.toUpperCase()}** with a **${risk.toUpperCase()}** risk profile. You can ask me about your trading patterns, discipline, win rate, sector preferences, or specific stock tickers!`
+        : `I'm ready to analyze your investing behavior! Log your buy/sell transactions so I can compute your holding periods, win rate, and behavioral scores.`);
+  }
+
+  // 2. Questions about PIIP Platform / Features
+  if (lower.includes('what is piip') || lower.includes('how does piip work') || lower.includes('what can you do') || lower.includes('platform')) {
+    return `**PIIP (Personal Investment Intelligence Platform)** helps you decode your trading psychology and behavior.\n\n` +
+      `**Key Features:**\n` +
+      `• **Behavioral Profiling:** Classifies your style as Momentum, Value, Growth, or Contrarian.\n` +
+      `• **5 Behavioral Scores:** Measures Discipline, Patience, Decisiveness, Risk Management, and Consistency.\n` +
+      `• **Win Rate & Profit Factor:** Analyzes realized PnL and trade execution.\n` +
+      `• **Smart Recommendations:** Suggests assets that align with your style and risk tolerance.\n` +
+      `• **Memory & Reflection:** Learns from past trading decisions and emotional notes.`;
+  }
+
+  // 3. Behavioral Profile & Trading Patterns
+  if (lower.includes('pattern') || lower.includes('behavior') || lower.includes('profile') || lower.includes('trader type') || lower.includes('analyze')) {
+    if (!profile) {
+      return `I don't have enough transaction data yet to generate a full behavioral profile for you. Try logging some buy and sell transactions first so I can analyze your holding periods, win rate, and behavioral scores!`;
+    }
+    const scores = profile.behavioralScores || {};
+    return `Here is your **Personal Behavioral Breakdown**:\n\n` +
+      `• **Investing Style:** ${profile.behaviorType?.toUpperCase()}\n` +
+      `• **Risk Profile:** ${profile.riskProfile?.toUpperCase()}\n` +
+      `• **Win Rate:** ${profile.winRate?.toFixed(1) || 0}% | **Profit Factor:** ${profile.profitFactor?.toFixed(2) || 0}\n` +
+      `• **Average Holding Period:** ${profile.averageHoldingPeriod?.toFixed(1) || 0} days (${profile.averageHoldingPeriodLabel || 'N/A'})\n` +
+      `• **Buy/Sell Ratio:** ${profile.buySellRatio?.toFixed(2) || 0}\n` +
+      `• **Behavioral Scores:**\n` +
+      `   - Discipline: **${scores.discipline || 0}/100**\n` +
+      `   - Patience: **${scores.patience || 0}/100**\n` +
+      `   - Decisiveness: **${scores.decisiveness || 0}/100**\n` +
+      `   - Risk Management: **${scores.riskManagement || 0}/100**\n` +
+      `   - Consistency: **${scores.consistency || 0}/100**\n\n` +
+      `*Insight:* ${profile.averageHoldingPeriod < 7 ? 'You favor fast execution. Keep stop-loss controls tight!' : 'Your patient approach helps mitigate market noise.'}`;
+  }
+
+  // 4. Discipline & Behavioral Scores
+  if (lower.includes('discipline') || lower.includes('score') || lower.includes('patience') || lower.includes('improve') || lower.includes('habit')) {
+    const disciplineScore = profile?.behavioralScores?.discipline || 50;
+    return `**Improving Your Trading Discipline (Current Score: ${disciplineScore}/100):**\n\n` +
+      `1. **Standardize Position Sizing:** Inconsistent trade sizes lower your discipline score. Aim for equal risk exposure per trade.\n` +
+      `2. **Set Pre-Trade Exit Targets:** Decide your profit target and stop-loss level before submitting orders.\n` +
+      `3. **Log Emotional Context:** Record whether trades were driven by FOMO, conviction, or news in the Memory tab.\n` +
+      `4. **Review Holding Period:** Your average holding period is **${profile?.averageHoldingPeriod?.toFixed(1) || 0} days**—ensure this matches your intended timeline.`;
+  }
+
+  // 5. Win Rate & Performance
+  if (lower.includes('win rate') || lower.includes('profit') || lower.includes('performance') || lower.includes('pnl') || lower.includes('return')) {
+    if (!profile) return `Log buy and sell transactions with realized PnL to track your win rate and profit factor.`;
+    return `**Performance Metrics:**\n\n` +
+      `• **Win Rate:** ${profile.winRate?.toFixed(1) || 0}%\n` +
+      `• **Profit Factor:** ${profile.profitFactor?.toFixed(2) || 0}\n` +
+      `• **Average Win vs Loss:** Win rate reflects the ratio of profitable sell trades. A profit factor above 1.5 indicates healthy risk/reward management.`;
+  }
+
+  // 6. Sector Preferences & Portfolio
+  if (lower.includes('sector') || lower.includes('diversif') || lower.includes('portfolio')) {
+    const preferred = profile?.preferredSectors?.map(s => `${s.sector} (${s.count} trades)`).join(', ') || user?.preferredSectors?.join(', ');
+    return preferred
+      ? `Based on your transaction history, your top sector concentration is in: **${preferred}**.\n\nEnsure your portfolio stays balanced to prevent over-exposure to a single market segment.`
+      : `You haven't established strong sector concentration yet. Log more transactions to view your sector allocation analysis.`;
+  }
+
+  // 7. Stock/Ticker or Buy/Sell questions
+  if (ticker || lower.includes('stock') || lower.includes('buy') || lower.includes('sell') || lower.includes('recommend')) {
+    const targetTicker = ticker || 'this asset';
+    return `**Analysis for ${targetTicker}:**\n\n` +
+      `• **Style Match:** Compare target asset characteristics against your **${behaviorType.toUpperCase()}** style.\n` +
+      `• **Risk Alignment:** Fits within your target **${risk.toUpperCase()}** risk tolerance.\n` +
+      `• **Position Sizing Rule:** Limit single-stock allocation to 5-10% of total portfolio value.\n\n` +
+      `*(Disclaimer: Educational commentary based on your behavioral metrics, not financial advice.)*`;
+  }
+
+  // 8. General fallback for any other prompt
+  return `Based on your **${behaviorType.toUpperCase()}** profile and **${risk.toUpperCase()}** risk tolerance:\n\n` +
+    `I am PIIP AI, analyzing your investment behavior. ` +
+    (profile
+      ? `Your current win rate is **${profile.winRate?.toFixed(1)}%** with an average holding period of **${profile.averageHoldingPeriod?.toFixed(1)} days** across **${profile.totalTransactions || 0}** transactions.`
+      : `Add transactions to unlock personalized behavioral metrics and scores.`) +
+    `\n\n*(Disclaimer: PIIP AI provides educational insights based on your behavior, not licensed financial advice.)*`;
+};
+
 const generateAIResponse = async ({ message, user, profile, recentHistory, ticker, topic, memories }) => {
-  const client = getClient();
-  if (!client) {
+  if (!process.env.GEMINI_API_KEY) {
     return {
-      content: `I'm currently running in offline mode (no OpenAI API key configured). Based on your ${profile ? profile.behaviorType : 'unclassified'} investing profile, here's a general tip: Track your transactions consistently to unlock deeper behavioral insights. ${ticker ? `For ${ticker}, consider your historical patterns and risk tolerance before acting.` : ''} (Disclaimer: This is educational content, not financial advice.)`,
+      content: generateSmartOfflineResponse(message, user, profile, ticker, topic),
       tokensUsed: 0,
       offline: true,
     };
   }
 
-  const systemPrompt = buildSystemPrompt(user, profile, memories);
-  const messages = [{ role: 'system', content: systemPrompt }];
+  try {
+    const systemInstruction = buildSystemPrompt(user, profile, memories);
+    const contents = [];
 
-  if (recentHistory && recentHistory.length > 0) {
-    [...recentHistory].reverse().forEach((h) => {
-      messages.push({ role: h.role, content: h.content });
+    if (recentHistory && recentHistory.length > 0) {
+      [...recentHistory].reverse().forEach((h) => {
+        contents.push({
+          role: h.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: h.content }],
+        });
+      });
+    }
+
+    let userMessage = message;
+    if (ticker) userMessage += `\n\n(Context: User is asking about ${ticker})`;
+    if (topic) userMessage += `\n\n(Topic: ${topic})`;
+
+    contents.push({
+      role: 'user',
+      parts: [{ text: userMessage }],
     });
+
+    const text = await callGeminiAPI({
+      systemInstruction,
+      contents,
+    });
+
+    return {
+      content: text,
+      tokensUsed: 0,
+      provider: 'gemini',
+    };
+  } catch (err) {
+    console.warn('[AI Service] Gemini API error (falling back to smart response):', err.message);
+    return {
+      content: generateSmartOfflineResponse(message, user, profile, ticker, topic),
+      tokensUsed: 0,
+      offline: true,
+      error: err.message,
+    };
   }
-
-  let userMessage = message;
-  if (ticker) userMessage += `\n\n(Context: User is asking about ${ticker})`;
-  if (topic) userMessage += `\n\n(Topic: ${topic})`;
-  messages.push({ role: 'user', content: userMessage });
-
-  const response = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages,
-    max_tokens: 500,
-    temperature: 0.7,
-  });
-
-  return {
-    content: response.choices[0].message.content,
-    tokensUsed: response.usage?.total_tokens || 0,
-  };
 };
 
 const generateInsights = async (user, profile) => {
-  const client = getClient();
-  if (!client) {
+  if (!process.env.GEMINI_API_KEY) {
     return generateOfflineInsights(profile);
   }
 
-  const systemPrompt = `You are PIIP AI. Generate 3-5 concise, actionable behavioral insights based on the user's investment profile. Each insight should be one sentence. Focus on patterns, strengths, weaknesses, and specific recommendations. Return as a JSON array of strings.`;
+  const systemInstruction = `You are PIIP AI. Generate 3-5 concise, actionable behavioral insights based on the user's investment profile. Each insight should be one sentence. Focus on patterns, strengths, weaknesses, and specific recommendations. Return as a JSON object with key "insights" containing an array of strings. Example: {"insights": ["Insight 1", "Insight 2"]}`;
 
   const userPrompt = `User: ${user.name}, Risk: ${user.riskTolerance}
 Profile: ${JSON.stringify({
@@ -103,20 +259,16 @@ Profile: ${JSON.stringify({
   })}`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 400,
-      temperature: 0.8,
-      response_format: { type: 'json_object' },
+    const text = await callGeminiAPI({
+      systemInstruction,
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      responseJson: true,
     });
 
-    const parsed = JSON.parse(response.choices[0].message.content);
-    return parsed.insights || [response.choices[0].message.content];
+    const parsed = JSON.parse(text);
+    return parsed.insights || [text];
   } catch (err) {
+    console.error('[AI Insights] Gemini error:', err.message);
     return generateOfflineInsights(profile);
   }
 };
@@ -146,4 +298,4 @@ const generateOfflineInsights = (profile) => {
   return insights;
 };
 
-module.exports = { generateAIResponse, generateInsights, buildSystemPrompt };
+module.exports = { generateAIResponse, generateInsights, buildSystemPrompt, callGeminiAPI };

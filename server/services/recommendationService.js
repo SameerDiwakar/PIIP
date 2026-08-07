@@ -1,11 +1,6 @@
-const OpenAI = require('openai');
 const { SAMPLE_COMPANIES, findCompany } = require('../data/sampleCompanies');
 const { formatMemoriesForPrompt } = require('./memoryService');
-
-const getClient = () => {
-  if (!process.env.OPENAI_API_KEY) return null;
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-};
+const { callGeminiAPI } = require('./aiService');
 
 const scoreCompanyFit = (company, profile, user) => {
   let score = 50;
@@ -113,11 +108,10 @@ const evaluateOpportunity = async ({ ticker, companyName, user, profile, memorie
     };
   }
 
-  const client = getClient();
-  if (!client) return evaluateOffline(company, profile, user, memories);
+  if (!process.env.GEMINI_API_KEY) return evaluateOffline(company, profile, user, memories);
 
   const memoryText = formatMemoriesForPrompt(memories);
-  const systemPrompt = `You are PIIP AI, a personal investment intelligence assistant. Evaluate investment opportunities based on the user's unique behavioral profile and memory. Return JSON with: action (Consider Buy | Hold | Pass), fitScore (0-100), reasoning (2-3 sentences), keyFactors (array of {factor, score}). Never give licensed financial advice — include educational disclaimer in reasoning.`;
+  const systemInstruction = `You are PIIP AI, a personal investment intelligence assistant. Evaluate investment opportunities based on the user's unique behavioral profile and memory. Return JSON with: action (Consider Buy | Hold | Pass), fitScore (0-100), reasoning (2-3 sentences), keyFactors (array of {factor, score}). Never give licensed financial advice — include educational disclaimer in reasoning.`;
 
   const userPrompt = `Evaluate ${company.companyName} (${company.ticker}):
 Company: ${JSON.stringify(company)}
@@ -135,18 +129,13 @@ User Memory:
 ${memoryText || 'No memories yet.'}`;
 
   try {
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 500,
-      temperature: 0.6,
-      response_format: { type: 'json_object' },
+    const text = await callGeminiAPI({
+      systemInstruction,
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      responseJson: true,
     });
 
-    const parsed = JSON.parse(response.choices[0].message.content);
+    const parsed = JSON.parse(text);
     return {
       ticker: company.ticker,
       companyName: company.companyName,
@@ -154,9 +143,10 @@ ${memoryText || 'No memories yet.'}`;
       fitScore: parsed.fitScore || scoreCompanyFit(company, profile, user),
       reasoning: parsed.reasoning || '',
       keyFactors: parsed.keyFactors || [],
-      tokensUsed: response.usage?.total_tokens || 0,
+      provider: 'gemini',
     };
   } catch (err) {
+    console.error('[Evaluate Opportunity] Gemini error:', err.message);
     return evaluateOffline(company, profile, user, memories);
   }
 };
