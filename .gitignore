@@ -4,3 +4,7 @@ server/.env
 client/.env
 dist
 build
+server/.env.example
+server/node_modules
+client/node_modules
+.env.example
