@@ -4,10 +4,11 @@ PIIP (Personal Investment Intelligence Platform) is a full-stack web application
 
 ---
 
-## Live Deployment Links
+## Project Links & Deliverables
 
-- **Frontend Application (Vercel):** [https://piip-mgbi-lilac.vercel.app](https://piip-mgbi-lilac.vercel.app)
-- **Backend API Server (Render):** [https://piip-backend.onrender.com](https://piip-backend.onrender.com)
+- **GitHub Repository:** [https://github.com/SameerDiwakar/PIIP](https://github.com/SameerDiwakar/PIIP)
+- **Live Frontend Application (Vercel):** [https://piip-mgbi-lilac.vercel.app](https://piip-mgbi-lilac.vercel.app)
+- **Live Backend API Server (Render):** [https://piip-backend.onrender.com](https://piip-backend.onrender.com)
 
 ---
 
@@ -70,6 +71,9 @@ PIIP uses a classic client-server architecture with decoupled services:
 Clone the repository and install dependencies for both server and client:
 
 ```bash
+git clone https://github.com/SameerDiwakar/PIIP.git
+cd PIIP
+
 # Option A: Root helper script
 npm run install:all
 
@@ -91,7 +95,7 @@ Update `server/.env` with your credentials:
 
 ```env
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/piip
+MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/piip
 JWT_SECRET=your_secure_jwt_secret_phrase
 JWT_EXPIRES_IN=7d
 GEMINI_API_KEY=your_gemini_api_key_here
@@ -102,7 +106,7 @@ CLIENT_URL=http://localhost:5173
 
 ### 3. Seed Demo Data
 
-Make sure MongoDB is running, then run the seed script to populate sample companies, a demo user, and historical trade logs:
+Make sure your MongoDB connection is configured, then run the seed script to populate sample companies, a demo user, and historical trade logs:
 
 ```bash
 cd server
@@ -142,7 +146,7 @@ You can sign in immediately using the pre-seeded account:
 - **Email:** `demo@piip.com`
 - **Password:** `demo1234`
 
-*Note: You can also register a new user account and click **"Load Sample Data"** on the dashboard to populate mock trade history.*
+*Note: You can also register a new user account on `/register` and click **Load Sample Data** on the dashboard to populate mock trade history.*
 
 ---
 
@@ -197,7 +201,7 @@ You can sign in immediately using the pre-seeded account:
 
 - **Market & Company Data:** Sample dataset of 20 major US equities defined in `server/data/sampleCompanies.js` (including ticker, sector, market cap, style tag, description).
 - **Trade History:** 27 pre-built trade records spanning ~12 months in `server/data/sampleData.js` used during database seeding.
-- **Live Prices:** Current version relies on transaction cost basis and static sample metadata; live API feeds (e.g. Polygon, Alpha Vantage) are not integrated in the default seed setup.
+- **Live Prices:** Current version relies on transaction cost basis and static sample metadata; live API feeds (e.g. Polygon, Alpha Vantage) can be integrated in future iterations.
 
 ---
 
