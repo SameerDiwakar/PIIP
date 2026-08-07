@@ -56,7 +56,7 @@ const callGeminiAPI = async ({ systemInstruction, contents, responseJson = false
 };
 
 const buildSystemPrompt = (user, profile, memories) => {
-  let prompt = `You are PIIP AI, a personal investment intelligence assistant. You help users understand their investing behavior, trading patterns, and make disciplined financial decisions. Be concise, insightful, and data-driven. Never give licensed financial advice - always include a disclaimer when discussing specific buy/sell recommendations.
+  let prompt = `You are PIIP AI, a personal investment intelligence assistant. You help users understand their investing behavior, trading patterns, and make disciplined financial decisions. Be concise, insightful, and data-driven. Never give licensed financial advice - always include a disclaimer when discussing specific buy/sell recommendations. Format your response cleanly using bullet points, numbered steps, and bold titles where appropriate.
 
 User Profile:
 - Name: ${user.name}
@@ -108,82 +108,62 @@ const generateSmartOfflineResponse = (message, user, profile, ticker, topic) => 
         : `I'm ready to analyze your investing behavior! Log your buy/sell transactions so I can compute your holding periods, win rate, and behavioral scores.`);
   }
 
-  // 2. Questions about PIIP Platform / Features
-  if (lower.includes('what is piip') || lower.includes('how does piip work') || lower.includes('what can you do') || lower.includes('platform')) {
-    return `**PIIP (Personal Investment Intelligence Platform)** helps you decode your trading psychology and behavior.\n\n` +
-      `**Key Features:**\n` +
-      `• **Behavioral Profiling:** Classifies your style as Momentum, Value, Growth, or Contrarian.\n` +
-      `• **5 Behavioral Scores:** Measures Discipline, Patience, Decisiveness, Risk Management, and Consistency.\n` +
-      `• **Win Rate & Profit Factor:** Analyzes realized PnL and trade execution.\n` +
-      `• **Smart Recommendations:** Suggests assets that align with your style and risk tolerance.\n` +
-      `• **Memory & Reflection:** Learns from past trading decisions and emotional notes.`;
-  }
-
-  // 3. Behavioral Profile & Trading Patterns
+  // 2. Behavioral Profile & Trading Patterns
   if (lower.includes('pattern') || lower.includes('behavior') || lower.includes('profile') || lower.includes('trader type') || lower.includes('analyze')) {
     if (!profile) {
       return `I don't have enough transaction data yet to generate a full behavioral profile for you. Try logging some buy and sell transactions first so I can analyze your holding periods, win rate, and behavioral scores!`;
     }
     const scores = profile.behavioralScores || {};
-    return `Here is your **Personal Behavioral Breakdown**:\n\n` +
-      `• **Investing Style:** ${profile.behaviorType?.toUpperCase()}\n` +
-      `• **Risk Profile:** ${profile.riskProfile?.toUpperCase()}\n` +
-      `• **Win Rate:** ${profile.winRate?.toFixed(1) || 0}% | **Profit Factor:** ${profile.profitFactor?.toFixed(2) || 0}\n` +
-      `• **Average Holding Period:** ${profile.averageHoldingPeriod?.toFixed(1) || 0} days (${profile.averageHoldingPeriodLabel || 'N/A'})\n` +
-      `• **Buy/Sell Ratio:** ${profile.buySellRatio?.toFixed(2) || 0}\n` +
-      `• **Behavioral Scores:**\n` +
-      `   - Discipline: **${scores.discipline || 0}/100**\n` +
-      `   - Patience: **${scores.patience || 0}/100**\n` +
-      `   - Decisiveness: **${scores.decisiveness || 0}/100**\n` +
-      `   - Risk Management: **${scores.riskManagement || 0}/100**\n` +
-      `   - Consistency: **${scores.consistency || 0}/100**\n\n` +
-      `*Insight:* ${profile.averageHoldingPeriod < 7 ? 'You favor fast execution. Keep stop-loss controls tight!' : 'Your patient approach helps mitigate market noise.'}`;
+    return `Here is your Personal Behavioral Breakdown:\n\n` +
+      `• Investing Style: **${profile.behaviorType?.toUpperCase()}**\n` +
+      `• Risk Profile: **${profile.riskProfile?.toUpperCase()}**\n` +
+      `• Win Rate: **${profile.winRate?.toFixed(1) || 0}%** | Profit Factor: **${profile.profitFactor?.toFixed(2) || 0}**\n` +
+      `• Average Holding Period: **${profile.averageHoldingPeriod?.toFixed(1) || 0} days** (${profile.averageHoldingPeriodLabel || 'N/A'})\n` +
+      `• Buy/Sell Ratio: **${profile.buySellRatio?.toFixed(2) || 0}**\n\n` +
+      `Behavioral Scores:\n` +
+      `• Discipline: **${scores.discipline || 0}/100**\n` +
+      `• Patience: **${scores.patience || 0}/100**\n` +
+      `• Decisiveness: **${scores.decisiveness || 0}/100**\n` +
+      `• Risk Management: **${scores.riskManagement || 0}/100**\n` +
+      `• Consistency: **${scores.consistency || 0}/100**\n\n` +
+      `Insight: ${profile.averageHoldingPeriod < 7 ? 'You favor fast execution. Keep stop-loss controls tight!' : 'Your patient approach helps mitigate market noise.'}`;
   }
 
-  // 4. Discipline & Behavioral Scores
-  if (lower.includes('discipline') || lower.includes('score') || lower.includes('patience') || lower.includes('improve') || lower.includes('habit')) {
-    const disciplineScore = profile?.behavioralScores?.discipline || 50;
-    return `**Improving Your Trading Discipline (Current Score: ${disciplineScore}/100):**\n\n` +
-      `1. **Standardize Position Sizing:** Inconsistent trade sizes lower your discipline score. Aim for equal risk exposure per trade.\n` +
-      `2. **Set Pre-Trade Exit Targets:** Decide your profit target and stop-loss level before submitting orders.\n` +
-      `3. **Log Emotional Context:** Record whether trades were driven by FOMO, conviction, or news in the Memory tab.\n` +
-      `4. **Review Holding Period:** Your average holding period is **${profile?.averageHoldingPeriod?.toFixed(1) || 0} days**—ensure this matches your intended timeline.`;
+  // 3. How to improve / Discipline / Low scores
+  if (lower.includes('discipline') || lower.includes('score') || lower.includes('patience') || lower.includes('improve') || lower.includes('better') || lower.includes('how do i')) {
+    const scores = profile?.behavioralScores || {};
+    const lowAreas = [];
+    if ((scores.riskManagement || 50) < 50) lowAreas.push(`1. **Enhance Risk Management** (Score: ${scores.riskManagement || 0}/100): Set strict stop-loss orders and avoid over-allocating on single positions.`);
+    if ((scores.decisiveness || 50) < 50) lowAreas.push(`2. **Improve Decisiveness** (Score: ${scores.decisiveness || 0}/100): Avoid hesitation when profit targets or stop-loss points are reached.`);
+    if ((scores.patience || 50) < 50) lowAreas.push(`3. **Increase Patience** (Score: ${scores.patience || 0}/100): Allow high-conviction trades sufficient time to play out rather than over-trading.`);
+    if ((scores.discipline || 50) < 50) lowAreas.push(`4. **Build Discipline** (Score: ${scores.discipline || 0}/100): Standardize your trade size across all positions.`);
+
+    if (lowAreas.length > 0) {
+      return `To improve your investing behavior, focus on strengthening your key growth areas:\n\n` + lowAreas.join('\n\n');
+    }
+
+    return `To improve your investing performance:\n\n` +
+      `1. **Standardize Position Sizing:** Avoid over-allocating on single momentum plays.\n\n` +
+      `2. **Define Exit Rules:** Set clear target prices and stop-losses before submitting orders.\n\n` +
+      `3. **Track Emotional Context:** Record trade reasons in your Reflection journal.`;
   }
 
-  // 5. Win Rate & Performance
-  if (lower.includes('win rate') || lower.includes('profit') || lower.includes('performance') || lower.includes('pnl') || lower.includes('return')) {
-    if (!profile) return `Log buy and sell transactions with realized PnL to track your win rate and profit factor.`;
-    return `**Performance Metrics:**\n\n` +
-      `• **Win Rate:** ${profile.winRate?.toFixed(1) || 0}%\n` +
-      `• **Profit Factor:** ${profile.profitFactor?.toFixed(2) || 0}\n` +
-      `• **Average Win vs Loss:** Win rate reflects the ratio of profitable sell trades. A profit factor above 1.5 indicates healthy risk/reward management.`;
+  // 4. Platform Info
+  if (lower.includes('piip') || lower.includes('platform') || lower.includes('how does')) {
+    return `PIIP (Personal Investment Intelligence Platform) helps you decode your trading psychology.\n\n` +
+      `• Behavioral Profiling: Classifies your style as Momentum, Value, Growth, or Contrarian.\n` +
+      `• 5 Core Scores: Measures Discipline, Patience, Decisiveness, Risk Management, and Consistency.\n` +
+      `• Performance Tracking: Analyzes win rates and profit factors.\n` +
+      `• Smart Recommendations: Suggests stocks matching your risk profile.`;
   }
 
-  // 6. Sector Preferences & Portfolio
-  if (lower.includes('sector') || lower.includes('diversif') || lower.includes('portfolio')) {
-    const preferred = profile?.preferredSectors?.map(s => `${s.sector} (${s.count} trades)`).join(', ') || user?.preferredSectors?.join(', ');
-    return preferred
-      ? `Based on your transaction history, your top sector concentration is in: **${preferred}**.\n\nEnsure your portfolio stays balanced to prevent over-exposure to a single market segment.`
-      : `You haven't established strong sector concentration yet. Log more transactions to view your sector allocation analysis.`;
-  }
-
-  // 7. Stock/Ticker or Buy/Sell questions
-  if (ticker || lower.includes('stock') || lower.includes('buy') || lower.includes('sell') || lower.includes('recommend')) {
-    const targetTicker = ticker || 'this asset';
-    return `**Analysis for ${targetTicker}:**\n\n` +
-      `• **Style Match:** Compare target asset characteristics against your **${behaviorType.toUpperCase()}** style.\n` +
-      `• **Risk Alignment:** Fits within your target **${risk.toUpperCase()}** risk tolerance.\n` +
-      `• **Position Sizing Rule:** Limit single-stock allocation to 5-10% of total portfolio value.\n\n` +
-      `*(Disclaimer: Educational commentary based on your behavioral metrics, not financial advice.)*`;
-  }
-
-  // 8. General fallback for any other prompt
+  // 5. General fallback
   return `Based on your **${behaviorType.toUpperCase()}** profile and **${risk.toUpperCase()}** risk tolerance:\n\n` +
     `I am PIIP AI, analyzing your investment behavior. ` +
     (profile
-      ? `Your current win rate is **${profile.winRate?.toFixed(1)}%** with an average holding period of **${profile.averageHoldingPeriod?.toFixed(1)} days** across **${profile.totalTransactions || 0}** transactions.`
-      : `Add transactions to unlock personalized behavioral metrics and scores.`) +
-    `\n\n*(Disclaimer: PIIP AI provides educational insights based on your behavior, not licensed financial advice.)*`;
+      ? `Your win rate is **${profile.winRate?.toFixed(1)}%** with an average holding period of **${profile.averageHoldingPeriod?.toFixed(1)} days**.`
+      : `Add transactions to unlock personalized behavioral metrics.`) +
+    `\n\nDisclaimer: Educational insights, not financial advice.`;
 };
 
 const generateAIResponse = async ({ message, user, profile, recentHistory, ticker, topic, memories }) => {

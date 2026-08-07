@@ -2,6 +2,78 @@ import { useEffect, useState, useRef } from 'react';
 import API from '../api';
 import { Send, MessageSquare, Sparkles, User } from 'lucide-react';
 
+const FormattedMessage = ({ content, isUser }) => {
+  if (!content) return null;
+
+  const lines = content.split('\n');
+
+  return (
+    <div className={`space-y-1.5 leading-relaxed text-sm ${isUser ? 'text-white' : 'text-slate-700'}`}>
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={idx} className="h-1" />;
+
+        // Header lines starting with ### or ## or #
+        if (trimmed.startsWith('#')) {
+          const text = trimmed.replace(/^#+\s*/, '');
+          return (
+            <h4 key={idx} className={`font-bold mt-2 mb-1 ${isUser ? 'text-white' : 'text-slate-900'}`}>
+              {renderInline(text, isUser)}
+            </h4>
+          );
+        }
+
+        // Bullet points starting with • or - or *
+        if (/^[•\-\*]\s+/.test(trimmed)) {
+          const text = trimmed.replace(/^[•\-\*]\s+/, '');
+          return (
+            <div key={idx} className="flex gap-2 pl-1 my-1">
+              <span className={`font-bold ${isUser ? 'text-white/80' : 'text-primary-600'}`}>•</span>
+              <div>{renderInline(text, isUser)}</div>
+            </div>
+          );
+        }
+
+        // Numbered list items starting with 1. 2. etc.
+        const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+        if (numMatch) {
+          return (
+            <div key={idx} className="flex gap-2 pl-1 my-1">
+              <span className={`font-bold shrink-0 ${isUser ? 'text-white/90' : 'text-primary-600'}`}>{numMatch[1]}.</span>
+              <div>{renderInline(numMatch[2], isUser)}</div>
+            </div>
+          );
+        }
+
+        // Normal text line
+        return <p key={idx}>{renderInline(trimmed, isUser)}</p>;
+      })}
+    </div>
+  );
+};
+
+const renderInline = (text, isUser) => {
+  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+      return (
+        <strong key={i} className={`font-semibold ${isUser ? 'text-white' : 'text-slate-900'}`}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+      return (
+        <em key={i} className="italic opacity-90">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    return part;
+  });
+};
+
 const AIChat = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -84,8 +156,8 @@ const AIChat = () => {
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-primary-100 text-primary-600' : 'bg-slate-100 text-slate-600'}`}>
                     {msg.role === 'user' ? <User className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
                   </div>
-                  <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${msg.role === 'user' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                    {msg.content}
+                  <div className={`max-w-[80%] md:max-w-[75%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                    <FormattedMessage content={msg.content} isUser={msg.role === 'user'} />
                   </div>
                 </div>
               ))}
@@ -97,8 +169,8 @@ const AIChat = () => {
               <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-primary-100 text-primary-600' : 'bg-slate-100 text-slate-600'}`}>
                 {msg.role === 'user' ? <User className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
               </div>
-              <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${msg.role === 'user' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                {msg.content}
+              <div className={`max-w-[80%] md:max-w-[75%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                <FormattedMessage content={msg.content} isUser={msg.role === 'user'} />
               </div>
             </div>
           ))}
