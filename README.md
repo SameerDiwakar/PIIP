@@ -1,122 +1,214 @@
 # PIIP — Personal Investment Intelligence Platform
 
-A full-stack fintech application that learns from your investment behavior and provides personalized, explainable insights powered by AI.
+PIIP (Personal Investment Intelligence Platform) is a full-stack web application designed to track investment transactions, analyze investor trading behavior, maintain user-specific memory, and generate personalized equity recommendations and AI assistance using Google Gemini API.
+
+---
 
 ## Features
 
-- **Transaction Tracking** — Log buys, sells, and holds with notes, sentiment, and market context
-- **Portfolio & Analytics** — Real-time allocation, sector breakdown, and activity charts
-- **Behavior Analysis** — Automated profiling of investing style (momentum, value, growth, etc.)
-- **Long-term Memory** — Persistent "second brain" that learns patterns, mistakes, and preferences
-- **AI Assistant** — Conversational chat with context from your profile and memory (OpenAI GPT-4o-mini)
-- **Personalized Recommendations** — Evaluate new opportunities with fit scores and reasoning
-- **Similar Companies** — Discover stocks aligned with your behavioral profile
-- **Feedback Loop** — Rate recommendations so the system adapts over time
-- **Watchlist** — Track stocks with price alerts and priority levels
+- **Transaction & Portfolio Management:** Log buy, sell, and hold transactions with cost basis, notes, sentiment, and market context. View portfolio positions, unrealized returns, and asset allocation breakdown.
+- **Behavioral Profiling Engine:** Rule-based analyzer that evaluates trade history to determine investor style (momentum, value, growth, contrarian, balanced), risk profile, holding period tendencies, and behavioral scores (discipline, patience, decisiveness, consistency, risk management).
+- **Three-Tier User Memory System:** Persistent user memory layer storing trade insights, behavioral patterns, trading mistakes, and feedback to personalize future AI responses and evaluations.
+- **AI Assistant & Interactive Chat:** Context-aware chat interface powered by Google Gemini (`gemini-2.5-flash` with model fallbacks) loaded with user portfolio stats, behavior profile, and memory entries.
+- **Recommendation & Opportunity Evaluator:** Evaluates individual tickers against investor profile and risk tolerance using AI analysis with a deterministic rule-based scoring fallback engine.
+- **Similar Companies Discovery:** Surface stock ideas matched to user investment style and preferred sectors.
+- **Feedback & Adaptation Loop:** Rate AI recommendations to record user feedback into long-term memory.
+- **Watchlist Tracking:** Track priority tickers with notes and target price alerts.
+
+---
 
 ## Architecture
 
+PIIP uses a classic client-server architecture with decoupled services:
+
 ```
-┌─────────────┐     ┌──────────────────────────────────────────────┐
-│  React SPA  │────▶│  Express API (Node.js)                       │
-│  (Vite)     │     │  ├── Auth (JWT)                              │
-└─────────────┘     │  ├── Transactions / Portfolio / Watchlist     │
-                    │  ├── Behavior Analyzer (rule-based ML)       │
-                    │  ├── Memory Service (persistent user memory)  │
-                    │  ├── Recommendation Engine (profile + OpenAI) │
-                    │  └── AI Service (GPT-4o-mini)                │
-                    └──────────────┬───────────────────────────────┘
-                                   │
-                    ┌──────────────▼───────────────────────────────┐
-                    │  MongoDB                                     │
-                    │  Users · Transactions · BehaviorProfiles     │
-                    │  UserMemory · ChatHistory · Watchlist        │
-                    └──────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      React SPA (Vite)                       │
+│      React Router · Tailwind CSS · Recharts · Lucide UI     │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ REST API (JSON / JWT)
+┌──────────────────────────────▼──────────────────────────────┐
+│                    Express API Server                       │
+│  ├── Auth Service (JWT + bcrypt)                            │
+│  ├── Transaction & Portfolio Engine                         │
+│  ├── Behavior Analyzer (Quantitative Heuristics)            │
+│  ├── Memory Service (Tiered User Context Store)            │
+│  ├── Recommendation Engine (Hybrid Rule/AI Scorer)          │
+│  └── AI Service (Gemini API Integration with Fallbacks)     │
+└──────────────┬──────────────────────────────┬───────────────┘
+               │                              │
+┌──────────────▼──────────────┐  ┌────────────▼───────────────┐
+│           MongoDB           │  │     Google Gemini API     │
+│  Users · Transactions       │  │  (generativelanguage REST)│
+│  BehaviorProfiles · Memory  │  └───────────────────────────┘
+│  ChatHistory · Watchlist    │
+└─────────────────────────────┘
 ```
 
-## Quick Start
+---
 
-### Prerequisites
+## Prerequisites
 
-- Node.js 18+
-- MongoDB (local or Atlas)
-- OpenAI API key
+- **Node.js:** v18.x or higher
+- **npm:** v9.x or higher
+- **MongoDB:** Local MongoDB instance (`mongodb://localhost:27017`) or MongoDB Atlas connection string
+- **Gemini API Key:** Free key from [Google AI Studio](https://aistudio.google.com/)
 
-### Setup
+---
+
+## Setup Instructions
+
+### 1. Repository Setup & Dependencies
+
+Clone the repository and install dependencies for both server and client:
 
 ```bash
-# 1. Install dependencies
+# Option A: Root helper script
+npm run install:all
+
+# Option B: Manual directory install
 cd server && npm install
 cd ../client && npm install
+```
 
-# 2. Configure environment
-cd ../server
-cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+### 2. Configure Environment Variables
 
-# 3. Seed demo data (requires MongoDB running)
+Create a `.env` file inside the `server/` directory:
+
+```bash
+cd server
+cp .env.example .env  # or create .env directly
+```
+
+Update `server/.env` with your credentials:
+
+```env
+PORT=5000
+MONGODB_URI=mongodb://localhost:27017/piip
+JWT_SECRET=your_secure_jwt_secret_phrase
+JWT_EXPIRES_IN=7d
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
+NODE_ENV=development
+CLIENT_URL=http://localhost:5173
+```
+
+### 3. Seed Demo Data
+
+Make sure MongoDB is running, then run the seed script to populate sample companies, a demo user, and historical trade logs:
+
+```bash
+cd server
 npm run seed
+```
 
-# 4. Start server
+### 4. Running the Development Servers
+
+Start the server and client concurrently or in separate terminal windows:
+
+```bash
+# Terminal 1: Backend API (runs on http://localhost:5000)
+cd server
 npm run dev
 
-# 5. Start client (separate terminal)
-cd ../client
+# Terminal 2: Frontend Client (runs on http://localhost:5173)
+cd client
 npm run dev
 ```
 
-Open http://localhost:5173 and sign in with:
+Alternatively, run from the root directory:
 
-| Email | Password |
-|-------|----------|
-| demo@piip.com | demo1234 |
+```bash
+# Start server from root
+npm run dev:server
 
-Or register a new account and click **Load Sample Data** on the dashboard.
+# Start client from root (in separate terminal)
+npm run dev:client
+```
+
+---
+
+## Demo Credentials
+
+You can sign in immediately using the pre-seeded account:
+
+- **Email:** `demo@piip.com`
+- **Password:** `demo1234`
+
+*Note: You can also register a new user account and click **"Load Sample Data"** on the dashboard to populate mock trade history.*
+
+---
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `PORT` | Server port (default: 5000) |
-| `MONGODB_URI` | MongoDB connection string |
-| `JWT_SECRET` | Secret for JWT tokens |
-| `OPENAI_API_KEY` | Your OpenAI API key |
-| `CLIENT_URL` | Frontend URL for CORS |
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `PORT` | No | `5000` | Server listening port |
+| `MONGODB_URI` | Yes | `mongodb://localhost:27017/piip` | MongoDB database connection URI |
+| `JWT_SECRET` | Yes | - | Secret key used to sign JWT authentication tokens |
+| `JWT_EXPIRES_IN` | No | `7d` | JWT token expiration time |
+| `GEMINI_API_KEY` | Yes | - | Google Gemini API key for AI chat and evaluations |
+| `GEMINI_MODEL` | No | `gemini-2.5-flash` | Primary Gemini model ID |
+| `CLIENT_URL` | No | `http://localhost:5173` | Allowed origin for CORS requests |
+| `NODE_ENV` | No | `development` | Node execution environment |
 
-## API Endpoints
+---
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/auth/register` | Register user |
-| POST | `/api/auth/login` | Login |
-| GET/POST | `/api/transactions` | CRUD transactions |
-| GET | `/api/portfolio` | Portfolio positions |
-| GET/POST | `/api/watchlist` | Watchlist management |
-| GET | `/api/analytics` | Trading analytics |
-| GET | `/api/ai/profile` | Behavior profile |
-| POST | `/api/ai/chat` | AI conversation |
-| POST | `/api/ai/insights` | Generate insights |
-| GET | `/api/recommendations/similar` | Similar companies |
-| POST | `/api/recommendations/evaluate` | Evaluate opportunity |
-| POST | `/api/recommendations/feedback` | Rate recommendation |
-| GET | `/api/memory` | User long-term memory |
-| POST | `/api/seed/demo` | Load sample data |
+## API Routes Overview
 
-## Design Decisions
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | No | Register a new user account |
+| `POST` | `/api/auth/login` | No | Authenticate user and issue JWT |
+| `GET` | `/api/auth/me` | Yes | Fetch current user profile |
+| `PUT` | `/api/auth/preferences` | Yes | Update stated risk tolerance and preferred sectors |
+| `GET` | `/api/transactions` | Yes | List user transactions with optional filters |
+| `POST` | `/api/transactions` | Yes | Create a new trade record |
+| `PUT` | `/api/transactions/:id` | Yes | Update an existing transaction |
+| `DELETE` | `/api/transactions/:id` | Yes | Delete a transaction record |
+| `GET` | `/api/portfolio` | Yes | Get calculated open portfolio holdings |
+| `GET` | `/api/portfolio/summary` | Yes | Get portfolio metrics (total invested, cash, total gain) |
+| `GET` | `/api/analytics` | Yes | Get sector allocation and monthly trade breakdown |
+| `GET` | `/api/watchlist` | Yes | List watchlist items |
+| `POST` | `/api/watchlist` | Yes | Add ticker to watchlist |
+| `DELETE` | `/api/watchlist/:id` | Yes | Remove ticker from watchlist |
+| `GET` | `/api/ai/profile` | Yes | Retrieve or compute investor behavior profile |
+| `POST` | `/api/ai/analyze` | Yes | Force re-computation of behavior profile |
+| `POST` | `/api/ai/chat` | Yes | Send message to AI assistant |
+| `POST` | `/api/ai/insights` | Yes | Generate structured summary insights |
+| `GET` | `/api/recommendations/similar` | Yes | Get recommended tickers matching investor profile |
+| `POST` | `/api/recommendations/evaluate` | Yes | Evaluate specific stock ticker fit |
+| `POST` | `/api/recommendations/feedback` | Yes | Submit rating for recommendation and save memory |
+| `GET` | `/api/memory` | Yes | Retrieve user memory entries |
+| `POST` | `/api/memory` | Yes | Add custom user memory entry |
+| `DELETE` | `/api/memory/:id` | Yes | Delete memory entry |
+| `POST` | `/api/seed/demo` | Yes | Populate user account with sample trade data |
 
-See [docs/TECHNICAL.md](docs/TECHNICAL.md) for detailed technical approach, assumptions, limitations, and future improvements.
+---
 
-## Tech Stack
+## Data Sources
 
-- **Frontend:** React 18, Vite, Tailwind CSS, Recharts, Lucide Icons
-- **Backend:** Node.js, Express, Mongoose
-- **Database:** MongoDB
-- **AI:** OpenAI GPT-4o-mini
+- **Market & Company Data:** Sample dataset of 20 major US equities defined in `server/data/sampleCompanies.js` (including ticker, sector, market cap, style tag, description).
+- **Trade History:** 27 pre-built trade records spanning ~12 months in `server/data/sampleData.js` used during database seeding.
+- **Live Prices:** Current version relies on transaction cost basis and static sample metadata; live API feeds (e.g. Polygon, Alpha Vantage) are not integrated in the default seed setup.
 
-## Deployment
+---
 
-Deploy the server (Railway, Render, Fly.io) and client (Vercel, Netlify) separately. Set environment variables on the server and configure the client proxy or `VITE_API_URL`.
+## Core Design Decisions
+
+1. **Decoupled Quantitative & Qualitative Layers:** Quantitative trade metrics (holding days, win rate, buy/sell ratio) are calculated deterministically by `behaviorAnalyzer.js`. AI services consume these computed metrics as context rather than calculating math directly.
+2. **Offline Fallback Engine:** If `GEMINI_API_KEY` is missing or the external API call fails, `recommendationService.js` falls back to rule-based fit scoring, ensuring UI components remain functional.
+3. **Structured User Memory:** Long-term user context is stored as discrete typed records (`preference`, `pattern`, `mistake`, `success`, `note`, `feedback`) with confidence ratings, injected dynamically into AI prompts.
+4. **Stateless API Design:** User session state is preserved via JWT headers and database persistence, allowing horizontally scalable Express deployments.
+
+---
+
+## Technical Documentation
+
+For complete details on formulas, memory architecture, limitations, security practices, and future improvements, refer to [docs/TECHNICAL.md](docs/TECHNICAL.md).
+
+---
 
 ## Disclaimer
 
-PIIP provides educational behavioral insights, not licensed financial advice. Always do your own research before making investment decisions.
+PIIP is designed purely for educational and analytical purposes. It provides behavioral insights based on historical trade logs and does not provide formal, licensed financial advice.
