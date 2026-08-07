@@ -216,7 +216,7 @@ You can sign in immediately using the pre-seeded account:
 
 ## Technical Documentation
 
-For complete details on formulas, memory architecture, limitations, security practices, and future improvements, refer to [docs/TECHNICAL.md](docs/TECHNICAL.md).
+For complete details on formulas, memory architecture, limitations, security practices, and future improvements, refer to [docs/TECHNICAL.md](docs/DOCUMENTATION.md).
 
 ---
 
